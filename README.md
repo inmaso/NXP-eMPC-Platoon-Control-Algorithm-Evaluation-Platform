@@ -14,7 +14,7 @@ Sometimes you need to specify the network interface name to connect to the MK5 d
 ```
 ssh fe80::6e5:48ff:fe20:0064%eth0
 ```
-### Installing the files
+### Installation
 Unzip the project zip file. The generated folder includes a folder ("llc-platooning-app") containing the source code and a Makefile realizing test automation.
 
 1. Move the "llc-platooning-app" to "mk5/stack/apps"
@@ -30,7 +30,8 @@ ln -s ~/mk5/stack/apps/llc-platooning-app ./
 
 4. For successfully executing the example, the *MK5 IP addresses* and the log directory *$(LOG_DIR)* in the *Makefile* might need to be modified.
 
+5. For further information on the platform and how to run it, see the "Thesis.pdf" document attached. The running instructions can be found in Appendix A. 
+
 ## Authors
 
-* **Sijie Zhu** - [Github](https://github.com/sijiezhu)
 * **Iñaki Martín Soroa** -  [Github](https://github.com/inkms)
