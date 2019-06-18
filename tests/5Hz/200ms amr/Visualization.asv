@@ -1,0 +1,394 @@
+close all;
+clear;
+a1 = csvread('Log1.csv');
+a2 = csvread('Log2.csv');
+a3 = csvread('Log3.csv');
+a4 = csvread('Log4.csv');
+ul1 = csvread('UL1.csv');
+ul2 = csvread('UL2.csv');
+ul3 = csvread('UL3.csv');
+ul4 = csvread('UL4.csv');
+diff2to1 = csvread('TimeDifference2-1.csv');
+diff3to2 = csvread('TimeDifference3-2.csv');
+diff4to3 = csvread('TimeDifference4-3.csv');
+limit_x=1;
+limit_x_to=80;
+%% Parameters not in config
+veh_length=4;
+standstill=2;
+%% ReadConfig
+filetext = fileread('platoontest.conf');
+filetext(1:4)=[];
+fileID = fopen('configuration.csv','w');
+fprintf(fileID,'%s',filetext);
+fclose(fileID);
+conf = csvread('configuration.csv');
+TimeHeadway = conf(9);
+
+%% Eliminate useless data
+%Time of lower layer
+a1(:,1)=a1(:,1);
+a2(:,1)=a2(:,1)-diff2to1; %- 1521000000;
+a3(:,1)=a3(:,1)-diff3to2-diff2to1; %- 1521000000; %+ 1.3;
+a4(:,1)=a4(:,1)-diff4to3-diff3to2-diff2to1; %- 1521000000; %+ 1.3;
+%Time of messages received
+a1(:,18)=a1(:,18);
+a2(:,18)=a2(:,18); %- 1521000000;
+a3(:,18)=a3(:,18)-diff2to1; %- 1521000000; %+ 1.3;
+a4(:,18)=a4(:,18)-diff3to2-diff2to1; %- 1521000000; %+ 1.3;
+%Time of upper layer
+ul1(:,1)=ul1(:,1);
+ul2(:,1)=ul2(:,1)-diff2to1; %- 1521000000;
+ul3(:,1)=ul3(:,1)-diff3to2-diff2to1; %- 1521000000; %+ 1.3;
+ul4(:,1)=ul4(:,1)-diff4to3-diff3to2-diff2to1; %- 1521000000; %+ 1.3;
+%Time of messages received in upper layer
+ul1(:,3)=ul1(:,3);
+ul2(:,3)=ul2(:,3); %- 1521000000;
+ul3(:,3)=ul3(:,3)-diff2to1; %- 1521000000; %+ 1.3;
+ul4(:,3)=ul4(:,3)-diff3to2-diff2to1; %- 1521000000; %+ 1.3;
+t0 = max([a1(1) a2(1) a3(1)]);%- 1521000000
+
+while abs (a1(1,1)- t0) >=0.011
+    a1(1,:)=[];
+end
+while abs (a2(1,1)- t0) >=0.011
+    a2(1,:)=[];
+end
+while abs (a3(1,1)- t0) >=0.011
+    a3(1,:)=[];
+end
+while abs (a4(1,1)- t0) >=0.011
+    a4(1,:)=[];
+end
+% i=1;
+% while abs (a1(i,1)- t0) >=0.011
+%     a1(i,:)=[];
+%     i=i+1;
+% end
+% j=1;
+% while abs (a2(j,1)- t0) >=0.011
+%     a2(j,:)=[];
+%     j=j+1;
+% end
+% k=1;
+% while abs (a3(k,1)- t0) >=0.011
+%     a3(k,:)=[];
+%     k=k+1;
+% end
+% Clear the last row
+a1(length(a1),:)=[];
+a2(length(a2),:)=[];
+a3(length(a3),:)=[];
+a4(length(a4),:)=[];
+%%
+% Aligning
+n = min([length(a1) length(a2) length(a3) length(a4)]);
+a1 = a1(1:n,:);   
+a2 = a2(1:n,:);
+a3 = a3(1:n,:);
+a4 = a4(1:n,:);
+%%
+a1(:,1) = a1(:,1) - t0;
+a2(:,1) = a2(:,1) - t0;
+a3(:,1) = a3(:,1) - t0;
+a4(:,1) = a4(:,1) - t0;
+a1(:,18) = 0;
+a2(:,18) = a2(:,18) - t0;
+a3(:,18) = a3(:,18) - t0;
+a4(:,18) = a4(:,18) - t0;
+
+ul1(:,1) = ul1(:,1) - t0;
+ul2(:,1) = ul2(:,1) - t0;
+ul3(:,1) = ul3(:,1) - t0;
+ul4(:,1) = ul4(:,1) - t0;
+ul1(:,3) = 0;
+ul2(:,3) = ul2(:,3) - t0;
+ul3(:,3) = ul3(:,3) - t0;
+ul4(:,3) = ul4(:,3) - t0;
+%% Gap and related
+%actual_gap12 = a1(:,2)-a2(:,2)-veh_length;
+%actual_gap12 = a2(:,13)-a2(:,2)-veh_length; %Unfiltered
+reported_gap12 = a2(:,13)-a2(:,2)-veh_length;
+desired_gap12 = standstill+a2(:,3).*a2(:,19);
+error12 = reported_gap12-desired_gap12;
+%actual_gap23 = a2(:,2)-a3(:,2)-veh_length;
+%actual_gap23 = a3(:,13)-a3(:,2)-veh_length; %Unfiltered
+reported_gap23 = a3(:,13)-a3(:,2)-veh_length;
+desired_gap23 = standstill+a2(:,3).*a3(:,19);
+error23 = reported_gap23-desired_gap23;
+%actual_gap34 = a3(:,2)-a4(:,2)-veh_length;
+%actual_gap34 = a4(:,13)-a4(:,2)-veh_length; %Unfiltered
+reported_gap34 = a4(:,13)-a4(:,2)-veh_length;
+desired_gap34 = standstill+a4(:,3).*a4(:,19);
+error34 = reported_gap34-desired_gap34;
+%% Actual gap
+filled_pos1=filler(a1(:,1),a1(:,2));
+filled_pos2=filler(a2(:,1),a2(:,2));
+filled_pos3=filler(a3(:,1),a3(:,2));
+filled_pos4=filler(a4(:,1),a4(:,2));
+lim=max([filled_pos1(1,1),filled_pos2(1,1),filled_pos3(1,1),filled_pos4(1,1)]);
+while filled_pos1(1,1)<=lim
+    filled_pos1(1,:)=[];
+end
+while filled_pos2(1,1)<=lim
+    filled_pos2(1,:)=[];
+end
+while filled_pos3(1,1)<=lim
+    filled_pos3(1,:)=[];
+end
+while filled_pos4(1,1)<=lim
+    filled_pos4(1,:)=[];
+end
+lim=min([length(filled_pos1),length(filled_pos2),length(filled_pos3),length(filled_pos4)]);
+filled_pos1=filled_pos1(1:lim,:);
+filled_pos2=filled_pos2(1:lim,:);
+filled_pos3=filled_pos3(1:lim,:);
+filled_pos4=filled_pos4(1:lim,:);
+
+actual_gap12=filled_pos1(:,2)-filled_pos2(:,2)-veh_length;
+actual_gap23=filled_pos2(:,2)-filled_pos3(:,2)-veh_length;
+actual_gap34=filled_pos3(:,2)-filled_pos4(:,2)-veh_length;
+%%
+fig1 = figure('Units','pixels','Position',[0 0 1500 500]);
+subplot(1,3,1);
+
+% plot (a2(:,1),a2(:,7));
+% hold on
+plot (a2(:,1),desired_gap12);
+hold on
+plot (filled_pos2(:,1),actual_gap12);
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+
+title('1-2 Actual Gap vs. Desired Gap (from devices logs)')
+ylabel('Distance (m)')
+xlabel('Time (s)')
+legend('Desired', 'Actual')
+% ylim([1.5 8])
+%xlim([0 40])
+subplot(1,3,2);
+ 
+% plot (a3(:,1),a3(:,7));
+% hold on
+plot (a3(:,1),desired_gap23);
+hold on
+plot (filled_pos2(:,1),actual_gap23);
+
+title('2-3 Actual Gap vs. Desired Gap (from devices logs)')
+ylabel('Distance (m)')
+xlabel('Time (s)')
+legend('Desired', 'Actual')
+% ylim([-5 5])
+% ylim([1.5 8])
+%xlim([0 40])
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+subplot(1,3,3);
+plot (a4(:,1),desired_gap34);
+hold on
+plot (filled_pos2(:,1),actual_gap34);
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+title('3-4 Actual Gap vs. Desired Gap (from devices logs)')
+ylabel('Distance (m)')
+xlabel('Time (s)')
+legend('Desired', 'Actual')
+
+folderName = [num2str(1000/conf(5)) 'Hz, h=' num2str(TimeHeadway) 's_' num2str(conf(7))];
+mkdir (folderName)
+filename = [num2str(1000/conf(5)) 'Hz, h=' num2str(TimeHeadway) 's_' num2str(conf(7)) '.png'];
+pathname = fullfile(folderName, filename);
+print(fig1,pathname,'-dpng')
+% figure
+% da1 = diff(a1(:,4));
+% da2 = diff(a2(:,4));
+% da3 = diff(a3(:,4));
+% i = 1:length(da1);
+% plot (i,da1);
+% hold on
+% plot (i,da2);
+% hold on
+% plot (i,da3);
+% title('Delta accelerations from devices logs')
+% ylabel('Delta Acceleration (m/s^3)')
+% xlabel('Time (s)')
+% legend('Delta acceleration vehicle 1', 'Delta acceleration vehicle 2', 'Delta acceleration vehicle 3')
+% ylim([-0.35 0.35])
+%% EXTRA GRAPHS - VELOCITY EXT
+fig2=figure('Units','pixels','Position',[0 0 1000 720]);
+plot (a1(:,1),a1(:,3));
+hold on
+plot (a2(:,1),a2(:,3));
+hold on
+plot (a3(:,1),a3(:,3));
+hold on
+plot (a4(:,1),a4(:,3));
+title('Actual velocity from devices logs')
+ylabel('Velocity (m/s)')
+xlabel('Time (s)')
+legend('Actual velocity vehicle 1', 'Actual velocity vehicle 2','Actual velocity vehicle 3', 'Actual velocity vehicle 4')
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+%ylim([4 18])
+% set(gcf,'Units','pixels','Position',[10 10 1920 1080]);
+filename = ['ResponseofVelocity('  num2str(1000/conf(5)) 'Hz, h=' num2str(TimeHeadway) 's)_' num2str(conf(7)) '.png'];
+pathname = fullfile(folderName, filename);
+print(fig2,pathname,'-dpng')
+
+%% Extra graphs - GAP ERROR INT FILTERED
+fig3=figure('Units','pixels','Position',[0 0 1000 720]);
+plot (a2(:,1),error12);
+hold on
+plot (a3(:,1),error23);
+hold on
+plot (a4(:,1),error34);
+% hold on
+% y = 0;
+% line([0,limit_x_to],[y,y])
+title('Gap error - With no noise')
+ylabel('Gap error (m)')
+xlabel('Time (s)')
+legend('Gap error between veh. 1 and veh. 2', 'Gap error between veh. 2 and veh. 3','Gap error between veh. 3 and veh. 4','Desired')
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+ %ylim([-2 2])
+%% Extra graphs - GAP ERROR INT
+fig3=figure('Units','pixels','Position',[0 0 1000 720]);
+plot (a2(:,1),a2(:,7));
+hold on
+plot (a3(:,1),a3(:,7));
+hold on
+plot (a4(:,1),a4(:,7));
+% hold on
+% y = 0;
+% line([0,limit_x_to],[y,y])
+title('Used gap error - With noise filtered')
+ylabel('Gap error (m)')
+xlabel('Time (s)')
+legend('Gap error between veh. 1 and veh. 2', 'Gap error between veh. 2 and veh. 3','Gap error between veh. 3 and veh. 4','Desired')
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+% ylim([-2 2])
+%% Extra graphs - VELOCITY ERROR INT
+fig4=figure('Units','pixels','Position',[0 0 1000 720]);
+plot (a2(:,1),a2(:,8));
+hold on
+plot (a3(:,1),a3(:,8));
+hold on
+plot (a4(:,1),a4(:,8));
+hold on
+y = 0;
+line([0,limit_x_to],[y,y])
+title('Velocity error - According to the cars')
+ylabel('Velocity error (m/s)')
+xlabel('Time (s)')
+legend('Velocity error between veh. 1 and veh. 2', 'Velocity error between veh. 2 and veh. 3','Velocity error between veh. 3 and veh. 4','Desired')
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+ylim([-4 4])
+%% Extra graphs - ACCELERATION
+fig5=figure('Units','pixels','Position',[0 0 1000 720]);
+plot (a1(:,1),a1(:,4));
+hold on
+plot (a2(:,1),a2(:,4));
+hold on
+plot (a3(:,1),a3(:,4));
+hold on
+plot (a4(:,1),a4(:,4));
+
+title('Actual accelerations from devices logs')
+ylabel('Acceleration (m/s^2)')
+xlabel('Time (s)')
+legend('Actual acceleration vehicle 1', 'Actual acceleration vehicle 2', 'Actual acceleration vehicle 3', 'Actual acceleration vehicle 4')
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+axes('position',[.65 .175 .25 .25])
+box on
+%i=a1(:,1)>20 & a1(:,1)<25
+plot(a1(:,1),a1(:,4),a2(:,1),a2(:,4),a3(:,1),a3(:,4),a4(:,1),a4(:,4))
+axis tight
+%% Extra graphs - Power
+start_point_of_fuel_analysis=1;
+for k=1:1:start_point_of_fuel_analysis
+    power_refL(k)=0;
+    power_refF(k)=0;
+    power1(k)=0;
+    power2(k)=0;
+    power3(k)=0;
+    power4(k)=0;
+end
+for k=start_point_of_fuel_analysis:1:length(a1)
+    [power_refL(k),rub]=power_in(a2(k,2),a2(k,12:16),0);
+    [power_refF(k),rub]=power_in(a2(k,2),a2(k,12:16),-1);
+    [power1(k),c1(k)]=power_in(a2(k,2),a2(k,12:16),1);
+    [power2(k),c2(k)]=power_in(a2(k,13),a2(k,:),2);
+    [power3(k),c3(k)]=power_in(a3(k,13),a3(k,:),3);
+    [power4(k),c4(k)]=power_in(a4(k,13),a4(k,:),4);
+end
+fig5=figure('Units','pixels','Position',[0 0 1000 720]);
+plot (a1(:,1),power1);
+hold on
+plot (a2(:,1),power2);
+hold on
+plot (a3(:,1),power3);
+hold on
+plot (a4(:,1),power4);
+hold on
+y = 0;
+line([0,limit_x_to],[y,y],'Color','red')
+title('Power draw at every instant')
+ylabel('Power (W)')
+xlabel('Time (s)')
+legend('Power vehicle 1', 'Power vehicle 2', 'Power vehicle 3', 'Power vehicle 4','Braking line')
+if (limit_x)
+    xlim([0 limit_x_to])
+end
+
+power_analysis(power_refL,power_refF,power1,power2,power3,power4);
+%% Comfort analysis
+comfort_analysis(a1,a2,a3,a4);
+% %% Others - Delay in LL
+% stretching;
+% figure;
+% s1=plot_slope(a1(:,1));
+% s2=plot_slope(a2(:,1));
+% s3=plot_slope(a3(:,1));
+% s4=plot_slope(a4(:,1));
+% plot(s1);
+% hold on;
+% plot(s2);
+% hold on;
+% plot(s3);
+% hold on;
+% plot(s4);
+% %% Others - Delay in UL
+% stretching;
+% figure;
+% s1=plot_slope(ul1(50:end,5));
+% s2=plot_slope(ul2(50:end,5));
+% s3=plot_slope(ul3(50:end,5));
+% s4=plot_slope(ul4(50:end,5));
+% plot(s1);
+% hold on;
+% plot(s2);
+% hold on;
+% plot(s3);
+% hold on;
+% plot(s4);
+%% saving data
+pathname = fullfile(folderName, 'log1.csv');
+csvwrite(pathname,a1);
+pathname = fullfile(folderName, 'log2.csv');
+csvwrite(pathname,a2);
+pathname = fullfile(folderName, 'log3.csv');
+csvwrite(pathname,a3);
+pathname = fullfile(folderName, 'log4.csv');
+csvwrite(pathname,a4);
